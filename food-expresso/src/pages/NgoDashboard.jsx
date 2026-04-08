@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { getAvailableFoods, getWarehouseFoods, getFoods, createRequest, getRequestsByNgo, getNotificationsByUser, getApiErrorMessage } from '../services/api';
 import Navbar from '../components/Navbar';
 import FoodLocationMap from '../components/FoodLocationMap';
+import { getStoredUser } from '../services/auth';
 
 const isValidCoordinatePair = (lat, lng) => {
   if (!Number.isFinite(lat) || !Number.isFinite(lng)) return false;
@@ -50,7 +51,7 @@ const getFoodImageSrc = (food) => {
 };
 
 export default function NgoDashboard() {
-  const user = JSON.parse(localStorage.getItem('user') || '{}');
+  const user = getStoredUser() || {};
   const locationStorageKey = `ngo-fixed-location-${user.id || 'unknown'}`;
 
   const [foods, setFoods] = useState([]);
@@ -802,3 +803,4 @@ const styles = {
     marginBottom: '4px',
   },
 };
+

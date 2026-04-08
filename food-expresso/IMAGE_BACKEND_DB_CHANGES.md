@@ -71,7 +71,7 @@ Best to standardize on:
 {
   "id": 123,
   "title": "Rice",
-  "imageUrl": "http://localhost:8086/uploads/foods/rice-123.jpg"
+  "imageUrl": "http://localhost:8087/uploads/foods/rice-123.jpg"
 }
 ```
 

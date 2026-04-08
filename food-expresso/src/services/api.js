@@ -1,12 +1,35 @@
 import axios from 'axios';
 
+const AUTH_TOKEN_KEY = 'food-auth-token';
+const USER_KEY = 'user';
+
 const API = axios.create({
-  baseURL: 'http://localhost:8086',
+  baseURL: 'http://localhost:8087',
   timeout: 10000,
   headers: {
     Accept: 'application/json',
   },
 });
+
+API.interceptors.request.use((config) => {
+  const token = sessionStorage.getItem(AUTH_TOKEN_KEY);
+  if (token) {
+    config.headers = config.headers || {};
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+API.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      sessionStorage.removeItem(AUTH_TOKEN_KEY);
+      sessionStorage.removeItem(USER_KEY);
+    }
+    return Promise.reject(error);
+  }
+);
 
 export const getApiErrorMessage = (error, fallback = 'Something went wrong') => {
   if (!error) return fallback;
@@ -38,6 +61,7 @@ export const getApiErrorMessage = (error, fallback = 'Something went wrong') => 
 // User APIs
 export const getUsers = () => API.get('/users');
 export const createUser = (user) => API.post('/users', user);
+export const createAdminUser = (user) => API.post('/users/admin', user);
 export const getUser = (id) => API.get(`/users/${id}`);
 export const updateUser = (id, user) => API.put(`/users/${id}`, user);
 export const deleteUser = (id) => API.delete(`/users/${id}`);
@@ -62,4 +86,9 @@ export const getNotificationsByUser = (userId) => API.get(`/notifications/${user
 // Analytics API
 export const getAnalytics = () => API.get('/analytics');
 
+// Admin Audit Logs API
+export const getAdminLogs = (params = {}) => API.get('/admin/logs', { params });
+
 export default API;
+
+

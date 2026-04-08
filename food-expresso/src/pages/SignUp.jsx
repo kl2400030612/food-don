@@ -116,7 +116,6 @@ export default function SignUp() {
             >
               <option value="DONOR">Donor (Donate Food)</option>
               <option value="NGO">NGO (Request Food)</option>
-              <option value="ADMIN">Admin (Manage System)</option>
             </select>
           </div>
 
@@ -179,7 +178,6 @@ export default function SignUp() {
           <ul style={styles.list}>
             <li><strong>🎁 Donor</strong> - Donate food items</li>
             <li><strong>🤝 NGO</strong> - Request food donations</li>
-            <li><strong>👨‍💼 Admin</strong> - Manage system & approve requests</li>
           </ul>
         </div>
       </div>

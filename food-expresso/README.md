@@ -16,7 +16,7 @@ React + Vite frontend for the Food Donation System. Fully integrated with Spring
 ### Prerequisites
 
 - Node.js (v16+)
-- Spring Boot backend running at `http://localhost:8086`
+- Spring Boot backend running at `http://localhost:8087`
 
 ### Installation
 
@@ -161,7 +161,7 @@ User data is stored in `localStorage`:
 ## 🚨 Troubleshooting
 
 ### Backend not connecting?
-- Verify Spring Boot is running at `http://localhost:8086`
+- Verify Spring Boot is running at `http://localhost:8087`
 - Check browser console for CORS errors
 - Ensure backend `@CrossOrigin` is configured
 

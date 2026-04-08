@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import MapPicker from '../components/MapPicker';
 import { getApiErrorMessage, getUser, updateUser } from '../services/api';
+import { clearSession, getStoredUser, updateSessionUser } from '../services/auth';
 
 const isValidCoordinatePair = (lat, lng) => {
   if (!Number.isFinite(lat) || !Number.isFinite(lng)) return false;
@@ -27,7 +28,7 @@ const parseStoredLocation = (value) => {
 
 export default function Profile() {
   const navigate = useNavigate();
-  const [user, setUser] = useState(() => JSON.parse(localStorage.getItem('user') || '{}'));
+  const [user, setUser] = useState(() => getStoredUser() || {});
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({
     name: user.name || '',
@@ -68,7 +69,7 @@ export default function Profile() {
         const response = await getUser(user.id);
         const latestUser = response?.data;
         if (latestUser && typeof latestUser === 'object') {
-          localStorage.setItem('user', JSON.stringify(latestUser));
+          updateSessionUser(latestUser);
           setUser(latestUser);
           setFormData({
             name: latestUser.name || '',
@@ -103,7 +104,7 @@ export default function Profile() {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('user');
+    clearSession();
     navigate('/login');
   };
 
@@ -187,7 +188,7 @@ export default function Profile() {
         showNotice('error', `Saved locally only: ${getApiErrorMessage(err, 'Unable to sync with backend')}`);
       }
 
-      localStorage.setItem('user', JSON.stringify(updatedUser));
+      updateSessionUser(updatedUser);
       setUser(updatedUser);
       setFormData({
         name: updatedUser.name || '',
@@ -686,3 +687,5 @@ const styles = {
     color: '#31495d',
   },
 };
+
+

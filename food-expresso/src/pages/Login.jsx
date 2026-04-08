@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { getUsers, getApiErrorMessage } from '../services/api';
+import { getApiErrorMessage } from '../services/api';
+import { getSessionPolicy, getStoredUser, isAuthenticated, login, setSession } from '../services/auth';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -8,11 +9,13 @@ export default function Login() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const sessionPolicy = getSessionPolicy();
+  const sessionHint = "Session: " + Math.round(sessionPolicy.idleTimeoutMs / 60000) + " min idle / " + Math.round(sessionPolicy.absoluteTimeoutMs / 3600000) + " hr max";
+
 
   useEffect(() => {
-    const user = localStorage.getItem('user');
-    if (user) {
-      const userData = JSON.parse(user);
+    const userData = getStoredUser();
+    if (isAuthenticated() && userData) {
       if (userData.role === 'ADMIN') navigate('/admin');
       else if (userData.role === 'DONOR') navigate('/donor');
       else if (userData.role === 'NGO') navigate('/ngo');
@@ -25,30 +28,21 @@ export default function Login() {
     setLoading(true);
 
     try {
-      const response = await getUsers();
-      const users = Array.isArray(response.data)
-        ? response.data
-        : Array.isArray(response.data?.data)
-          ? response.data.data
-          : [];
-
       const inputEmail = String(email).trim().toLowerCase();
       const inputPassword = String(password).trim();
 
-      const user = users.find((u) => {
-        const userEmail = String(u?.email ?? '').trim().toLowerCase();
-        const userPassword = String(u?.password ?? '').trim();
-        return userEmail === inputEmail && userPassword === inputPassword;
-      });
+      const response = await login({ email: inputEmail, password: inputPassword });
+      const token = response?.data?.token;
+      const user = response?.data?.user;
 
-      if (user) {
-        localStorage.setItem('user', JSON.stringify(user));
+      if (token && user) {
+        setSession(token, user);
 
         if (user.role === 'ADMIN') navigate('/admin');
         else if (user.role === 'DONOR') navigate('/donor');
         else if (user.role === 'NGO') navigate('/ngo');
       } else {
-        setError('Invalid email or password. User not found.');
+        setError('Login succeeded but session data was incomplete.');
       }
     } catch (err) {
       setError('Error connecting to backend: ' + getApiErrorMessage(err, 'Unable to connect to backend'));
@@ -62,6 +56,7 @@ export default function Login() {
       <div style={styles.formBox}>
         <h2>🍲 Food Donation System</h2>
         <p>Login to your account</p>
+        <p style={styles.sessionHint}>{sessionHint}</p>
 
         <form onSubmit={handleLogin}>
           <div style={styles.formGroup}>
@@ -187,4 +182,10 @@ const styles = {
     textDecoration: 'none',
     fontWeight: 'bold',
   },
+  sessionHint: {
+    fontSize: '12px',
+    color: '#607d8b',
+    marginBottom: '16px',
+  },
 };
+

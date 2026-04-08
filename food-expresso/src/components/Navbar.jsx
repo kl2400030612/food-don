@@ -1,14 +1,15 @@
 import React from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { clearSession, getStoredUser } from '../services/auth';
 
 export default function Navbar() {
   const navigate = useNavigate();
   const location = useLocation();
-  const user = JSON.parse(localStorage.getItem('user') || '{}');
+  const user = getStoredUser() || {};
   const isProfileRoute = location.pathname === '/profile';
 
   const handleLogout = () => {
-    localStorage.removeItem('user');
+    clearSession();
     navigate('/login');
   };
 
@@ -91,3 +92,4 @@ const styles = {
     fontWeight: 700,
   },
 };
+

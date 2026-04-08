@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { createFood, getFoodsByDonor, deleteFood, getApiErrorMessage } from '../services/api';
 import Navbar from '../components/Navbar';
 import MapPicker from '../components/MapPicker';
+import { getStoredUser } from '../services/auth';
 
 const FOOD_IMAGE_STORAGE_KEY = 'donor-food-image-map';
 
@@ -38,7 +39,7 @@ export default function DonorDashboard() {
     longitude: null,
   });
 
-  const user = JSON.parse(localStorage.getItem('user') || '{}');
+  const user = getStoredUser() || {};
 
   useEffect(() => {
     if (!user.id || user.role !== 'DONOR') {
@@ -556,3 +557,4 @@ const styles = {
     borderRadius: '4px',
   },
 };
+

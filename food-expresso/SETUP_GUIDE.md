@@ -22,8 +22,8 @@ This installs:
 
 ## Step 2: Configure Backend URL
 
-The backend URL is already set to `http://localhost:8086` in:
-- `src/services/api.js` (Line 3: `baseURL: 'http://localhost:8086'`)
+The backend URL is already set to `http://localhost:8087` in:
+- `src/services/api.js` (Line 3: `baseURL: 'http://localhost:8087'`)
 
 ✅ **No changes needed if backend runs on default port.**
 
@@ -135,7 +135,7 @@ getAnalytics()                  // GET /analytics
 
 ### ❌ "Error connecting to backend"
 **Cause**: Spring Boot backend not running
-**Fix**: Start backend at `http://localhost:8086`
+**Fix**: Start backend at `http://localhost:8087`
 
 ### ❌ "Invalid email or role. User not found."
 **Cause**: User doesn't exist or role mismatch
@@ -187,7 +187,7 @@ npm run preview
 
 ## Next Steps
 
-1. ✅ Backend running at http://localhost:8086
+1. ✅ Backend running at http://localhost:8087
 2. ✅ Dependencies installed (`npm install`)
 3. ✅ Development server running (`npm run dev`)
 4. ✅ Frontend accessible at http://localhost:5173

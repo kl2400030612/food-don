@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getRequests, approveRequest, getWarehouseFoods, getUsers, getApiErrorMessage } from '../services/api';
+import { getRequests, approveRequest, getWarehouseFoods, getUsers, createAdminUser, getApiErrorMessage } from '../services/api';
 import Navbar from '../components/Navbar';
 import FoodLocationMap from '../components/FoodLocationMap';
+import { getStoredUser } from '../services/auth';
 
 export default function AdminDashboard() {
   const [requests, setRequests] = useState([]);
@@ -12,11 +13,20 @@ export default function AdminDashboard() {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState({ type: '', message: '' });
   const [approvingId, setApprovingId] = useState(null);
+  const [creatingAdmin, setCreatingAdmin] = useState(false);
+  const [selectedRequest, setSelectedRequest] = useState(null);
+  const [adminForm, setAdminForm] = useState({
+    name: '',
+    email: '',
+    password: '',
+    phone: '',
+    address: '',
+  });
   const [tab, setTab] = useState('requests');
   const navigate = useNavigate();
 
   useEffect(() => {
-    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    const user = getStoredUser() || {};
     if (!user.id || user.role !== 'ADMIN') {
       navigate('/login');
       return;
@@ -39,7 +49,12 @@ export default function AdminDashboard() {
   const loadRequests = async () => {
     try {
       const response = await getRequests();
-      setRequests(response.data);
+      const sortedRequests = [...(response.data || [])].sort((a, b) => {
+        const aTime = new Date(a.createdAt || 0).getTime();
+        const bTime = new Date(b.createdAt || 0).getTime();
+        return bTime - aTime;
+      });
+      setRequests(sortedRequests);
     } catch (err) {
       setError('Error loading requests: ' + getApiErrorMessage(err, 'Unable to load requests'));
     }
@@ -80,6 +95,45 @@ export default function AdminDashboard() {
       showNotice('error', 'Error approving request: ' + getApiErrorMessage(err, 'Unable to approve request'));
     } finally {
       setApprovingId(null);
+    }
+  };
+
+  const handleAdminInput = (e) => {
+    const { name, value } = e.target;
+    setAdminForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleCreateAdmin = async (e) => {
+    e.preventDefault();
+    if (!adminForm.name || !adminForm.email || !adminForm.password || !adminForm.phone || !adminForm.address) {
+      showNotice('error', 'All admin fields are required');
+      return;
+    }
+
+    if (adminForm.password.length < 4) {
+      showNotice('error', 'Admin password must be at least 4 characters');
+      return;
+    }
+
+    try {
+      setCreatingAdmin(true);
+      await createAdminUser({
+        ...adminForm,
+        role: 'ADMIN',
+      });
+      setAdminForm({
+        name: '',
+        email: '',
+        password: '',
+        phone: '',
+        address: '',
+      });
+      await loadUsers();
+      showNotice('success', 'New admin created successfully');
+    } catch (err) {
+      showNotice('error', 'Unable to create admin: ' + getApiErrorMessage(err, 'Admin creation failed'));
+    } finally {
+      setCreatingAdmin(false);
     }
   };
 
@@ -153,6 +207,12 @@ export default function AdminDashboard() {
           >
             🏢 Warehouse ({warehouseFoods.length})
           </button>
+          <button
+            onClick={() => setTab('settings')}
+            style={{ ...styles.tabBtn, ...(tab === 'settings' ? styles.tabBtnActive : {}) }}
+          >
+            ⚙️ Settings
+          </button>
         </div>
 
         {loading ? (
@@ -171,56 +231,25 @@ export default function AdminDashboard() {
                       return (
                         <div key={req.id} style={styles.requestRow}>
                           <div style={styles.requestRowHeader}>
-                            <h3 style={styles.requestTitle}>Request #{req.id}</h3>
-                            <span style={{ ...styles.statusBadge, ...getBadgeStyle(req.status) }}>
-                              {formatValue(req.status)}
-                            </span>
-                          </div>
-
-                          <div style={styles.requestInfoGrid}>
-                            <div style={styles.requestInfoItem}>
-                              <p style={styles.requestInfoLabel}>NGO Name</p>
-                              <p style={styles.requestInfoValue}>{getNgoDisplayName(ngo, req.ngoId)}</p>
+                            <div style={styles.requestHeaderCopy}>
+                              <h3 style={styles.requestTitle}>Request #{req.id}</h3>
+                              <p style={styles.requestSummaryText}>
+                                {getNgoDisplayName(ngo, req.ngoId)} · ID {formatValue(req.ngoId)} · {formatDateTime(req.createdAt)}
+                              </p>
                             </div>
-                            <div style={styles.requestInfoItem}>
-                              <p style={styles.requestInfoLabel}>NGO Email</p>
-                              <p style={styles.requestInfoValue}>{formatValue(ngo?.email)}</p>
-                            </div>
-                            <div style={styles.requestInfoItem}>
-                              <p style={styles.requestInfoLabel}>NGO Phone</p>
-                              <p style={styles.requestInfoValue}>{formatValue(ngo?.phone)}</p>
-                            </div>
-                            <div style={styles.requestInfoItem}>
-                              <p style={styles.requestInfoLabel}>NGO Address</p>
-                              <p style={styles.requestInfoValue}>{formatValue(ngo?.address)}</p>
-                            </div>
-                            <div style={styles.requestInfoItem}>
-                              <p style={styles.requestInfoLabel}>NGO ID</p>
-                              <p style={styles.requestInfoValue}>{formatValue(req.ngoId)}</p>
-                            </div>
-                            <div style={styles.requestInfoItem}>
-                              <p style={styles.requestInfoLabel}>Food ID</p>
-                              <p style={styles.requestInfoValue}>{formatValue(req.foodId)}</p>
-                            </div>
-                            <div style={styles.requestInfoItem}>
-                              <p style={styles.requestInfoLabel}>Food Title</p>
-                              <p style={styles.requestInfoValue}>{formatValue(req.foodTitle || req.title)}</p>
-                            </div>
-                            <div style={styles.requestInfoItem}>
-                              <p style={styles.requestInfoLabel}>Quantity</p>
-                              <p style={styles.requestInfoValue}>{formatValue(req.quantity)}</p>
-                            </div>
-                            <div style={{ ...styles.requestInfoItem, gridColumn: '1 / -1' }}>
-                              <p style={styles.requestInfoLabel}>Pickup Location</p>
-                              <p style={styles.requestInfoValue}>{formatValue(req.location)}</p>
-                            </div>
-                            <div style={styles.requestInfoItem}>
-                              <p style={styles.requestInfoLabel}>Requested At</p>
-                              <p style={styles.requestInfoValue}>{formatDateTime(req.createdAt)}</p>
-                            </div>
-                            <div style={styles.requestInfoItem}>
-                              <p style={styles.requestInfoLabel}>Approved At</p>
-                              <p style={styles.requestInfoValue}>{formatDateTime(req.updatedAt)}</p>
+                            <div style={styles.requestHeaderActions}>
+                              <span style={{ ...styles.statusBadge, ...getBadgeStyle(req.status) }}>
+                                {formatValue(req.status)}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => setSelectedRequest({ req, ngo })}
+                                style={styles.infoIconBtn}
+                                aria-label={`View details for request ${req.id}`}
+                                title="View full request details"
+                              >
+                                i
+                              </button>
                             </div>
                           </div>
 
@@ -265,7 +294,123 @@ export default function AdminDashboard() {
                 )}
               </>
             )}
+
+            {tab === 'settings' && (
+              <div style={styles.settingsGrid}>
+                <div style={styles.adminCreateCard}>
+                  <h3 style={styles.adminCreateTitle}>Create Official Admin User</h3>
+                  <p style={styles.adminCreateSub}>Only logged-in admins can create additional admin accounts with full admin policies.</p>
+                  <form style={styles.adminCreateForm} onSubmit={handleCreateAdmin}>
+                    <input name="name" value={adminForm.name} onChange={handleAdminInput} placeholder="Full Name" style={styles.adminInput} />
+                    <input name="email" type="email" value={adminForm.email} onChange={handleAdminInput} placeholder="Email" style={styles.adminInput} />
+                    <input name="password" type="password" value={adminForm.password} onChange={handleAdminInput} placeholder="Password" style={styles.adminInput} />
+                    <input name="phone" value={adminForm.phone} onChange={handleAdminInput} placeholder="Phone" style={styles.adminInput} />
+                    <input name="address" value={adminForm.address} onChange={handleAdminInput} placeholder="Address" style={styles.adminInput} />
+                    <button type="submit" disabled={creatingAdmin} style={styles.createAdminBtn}>
+                      {creatingAdmin ? 'Creating...' : 'Create Admin'}
+                    </button>
+                  </form>
+                </div>
+
+                <div style={styles.adminCreateCard}>
+                  <h3 style={styles.adminCreateTitle}>Audit Logs</h3>
+                  <p style={styles.adminCreateSub}>Open the complete activity log for all admin-visible actions in the system.</p>
+                  <button
+                    style={styles.auditBtn}
+                    onClick={() => navigate('/admin/logs')}
+                  >
+                    Open Audit Logs
+                  </button>
+                </div>
+              </div>
+            )}
           </>
+        )}
+
+        {selectedRequest && (
+          <div style={styles.detailsOverlay} onClick={() => setSelectedRequest(null)}>
+            <div style={styles.detailsModal} onClick={(event) => event.stopPropagation()}>
+              <div style={styles.detailsHeader}>
+                <div>
+                  <h3 style={styles.detailsTitle}>Request #{selectedRequest.req.id}</h3>
+                  <p style={styles.detailsSubtitle}>
+                    {getNgoDisplayName(selectedRequest.ngo, selectedRequest.req.ngoId)} · ID {formatValue(selectedRequest.req.ngoId)}
+                  </p>
+                </div>
+                <button type="button" onClick={() => setSelectedRequest(null)} style={styles.detailsCloseBtn} aria-label="Close details">
+                  ×
+                </button>
+              </div>
+
+              <div style={styles.requestInfoGrid}>
+                <div style={styles.requestInfoItem}>
+                  <p style={styles.requestInfoLabel}>NGO Name</p>
+                  <p style={styles.requestInfoValue}>{getNgoDisplayName(selectedRequest.ngo, selectedRequest.req.ngoId)}</p>
+                </div>
+                <div style={styles.requestInfoItem}>
+                  <p style={styles.requestInfoLabel}>NGO Email</p>
+                  <p style={styles.requestInfoValue}>{formatValue(selectedRequest.ngo?.email)}</p>
+                </div>
+                <div style={styles.requestInfoItem}>
+                  <p style={styles.requestInfoLabel}>NGO Phone</p>
+                  <p style={styles.requestInfoValue}>{formatValue(selectedRequest.ngo?.phone)}</p>
+                </div>
+                <div style={styles.requestInfoItem}>
+                  <p style={styles.requestInfoLabel}>NGO Address</p>
+                  <p style={styles.requestInfoValue}>{formatValue(selectedRequest.ngo?.address)}</p>
+                </div>
+                <div style={styles.requestInfoItem}>
+                  <p style={styles.requestInfoLabel}>NGO ID</p>
+                  <p style={styles.requestInfoValue}>{formatValue(selectedRequest.req.ngoId)}</p>
+                </div>
+                <div style={styles.requestInfoItem}>
+                  <p style={styles.requestInfoLabel}>Food ID</p>
+                  <p style={styles.requestInfoValue}>{formatValue(selectedRequest.req.foodId)}</p>
+                </div>
+                <div style={styles.requestInfoItem}>
+                  <p style={styles.requestInfoLabel}>Food Title</p>
+                  <p style={styles.requestInfoValue}>{formatValue(selectedRequest.req.foodTitle || selectedRequest.req.title)}</p>
+                </div>
+                <div style={styles.requestInfoItem}>
+                  <p style={styles.requestInfoLabel}>Quantity</p>
+                  <p style={styles.requestInfoValue}>{formatValue(selectedRequest.req.quantity)}</p>
+                </div>
+                <div style={{ ...styles.requestInfoItem, gridColumn: '1 / -1' }}>
+                  <p style={styles.requestInfoLabel}>Pickup Location</p>
+                  <p style={styles.requestInfoValue}>{formatValue(selectedRequest.req.location)}</p>
+                </div>
+                <div style={styles.requestInfoItem}>
+                  <p style={styles.requestInfoLabel}>Requested At</p>
+                  <p style={styles.requestInfoValue}>{formatDateTime(selectedRequest.req.createdAt)}</p>
+                </div>
+                <div style={styles.requestInfoItem}>
+                  <p style={styles.requestInfoLabel}>Approved At</p>
+                  <p style={styles.requestInfoValue}>{formatDateTime(selectedRequest.req.updatedAt)}</p>
+                </div>
+                <div style={styles.requestInfoItem}>
+                  <p style={styles.requestInfoLabel}>Status</p>
+                  <p style={styles.requestInfoValue}>{formatValue(selectedRequest.req.status)}</p>
+                </div>
+              </div>
+
+              <div style={styles.detailsFooter}>
+                {selectedRequest.req.status === 'PENDING' ? (
+                  <button
+                    onClick={async () => {
+                      await handleApprove(selectedRequest.req.id);
+                      setSelectedRequest(null);
+                    }}
+                    disabled={approvingId === selectedRequest.req.id}
+                    style={styles.approveBtn}
+                  >
+                    {approvingId === selectedRequest.req.id ? 'Approving...' : 'Approve Request'}
+                  </button>
+                ) : (
+                  <span style={styles.approvedLabel}>Request already processed</span>
+                )}
+              </div>
+            </div>
+          </div>
         )}
 
         <div style={styles.info}>
@@ -333,6 +478,60 @@ const styles = {
     gap: '10px',
     marginBottom: '16px',
   },
+  adminCreateCard: {
+    backgroundColor: '#ffffff',
+    border: '1px solid #d8e8f1',
+    borderRadius: '12px',
+    padding: '14px',
+    marginBottom: '16px',
+    boxShadow: '0 6px 16px rgba(16, 39, 56, 0.08)',
+  },
+  settingsGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+    gap: '14px',
+  },
+  adminCreateTitle: {
+    margin: '0 0 6px 0',
+    color: '#18364d',
+    fontSize: '18px',
+  },
+  adminCreateSub: {
+    margin: '0 0 12px 0',
+    color: '#52697b',
+    fontSize: '13px',
+  },
+  adminCreateForm: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))',
+    gap: '10px',
+    alignItems: 'center',
+  },
+  adminInput: {
+    width: '100%',
+    padding: '10px',
+    border: '1px solid #bfd4e3',
+    borderRadius: '8px',
+    backgroundColor: '#fff',
+  },
+  createAdminBtn: {
+    border: 'none',
+    borderRadius: '8px',
+    backgroundColor: '#1e7f5d',
+    color: '#fff',
+    padding: '10px 12px',
+    fontWeight: 700,
+    cursor: 'pointer',
+  },
+  auditBtn: {
+    border: 'none',
+    borderRadius: '8px',
+    backgroundColor: '#0f3d5e',
+    color: '#fff',
+    padding: '10px 14px',
+    fontWeight: 700,
+    cursor: 'pointer',
+  },
   statCard: {
     backgroundColor: '#fff',
     border: '1px solid #d8e8f1',
@@ -397,13 +596,30 @@ const styles = {
   requestRowHeader: {
     display: 'flex',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
+    gap: '12px',
     marginBottom: '10px',
+  },
+  requestHeaderCopy: {
+    minWidth: 0,
   },
   requestTitle: {
     margin: 0,
     fontSize: '18px',
     color: '#17364d',
+  },
+  requestSummaryText: {
+    margin: '5px 0 0 0',
+    color: '#5f7488',
+    fontSize: '13px',
+    lineHeight: 1.4,
+    overflowWrap: 'anywhere',
+  },
+  requestHeaderActions: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    flexShrink: 0,
   },
   statusBadge: {
     fontSize: '12px',
@@ -411,6 +627,18 @@ const styles = {
     borderRadius: '999px',
     padding: '6px 10px',
     textTransform: 'uppercase',
+  },
+  infoIconBtn: {
+    width: '30px',
+    height: '30px',
+    borderRadius: '50%',
+    border: '1px solid #bfd4e4',
+    backgroundColor: '#f5fbff',
+    color: '#1f6f8b',
+    fontWeight: 800,
+    fontSize: '16px',
+    cursor: 'pointer',
+    lineHeight: 1,
   },
   requestInfoGrid: {
     display: 'grid',
@@ -479,6 +707,59 @@ const styles = {
     color: '#27ae60',
     fontWeight: 'bold',
   },
+  detailsOverlay: {
+    position: 'fixed',
+    inset: 0,
+    backgroundColor: 'rgba(11, 30, 44, 0.58)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: '20px',
+    zIndex: 50,
+  },
+  detailsModal: {
+    width: 'min(940px, 100%)',
+    maxHeight: '88vh',
+    overflowY: 'auto',
+    backgroundColor: '#fff',
+    borderRadius: '16px',
+    padding: '18px',
+    boxShadow: '0 20px 60px rgba(0, 0, 0, 0.26)',
+  },
+  detailsHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: '12px',
+    marginBottom: '14px',
+  },
+  detailsTitle: {
+    margin: 0,
+    fontSize: '22px',
+    color: '#17364d',
+  },
+  detailsSubtitle: {
+    margin: '4px 0 0 0',
+    color: '#5f7488',
+  },
+  detailsCloseBtn: {
+    width: '34px',
+    height: '34px',
+    borderRadius: '50%',
+    border: '1px solid #d7e5f1',
+    backgroundColor: '#f5fbff',
+    color: '#17364d',
+    fontSize: '22px',
+    lineHeight: '30px',
+    cursor: 'pointer',
+    flexShrink: 0,
+  },
+  detailsFooter: {
+    marginTop: '16px',
+    display: 'flex',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+  },
   info: {
     marginTop: '26px',
     padding: '14px 15px',
@@ -499,3 +780,6 @@ const styles = {
     boxShadow: '0 8px 18px rgba(16, 40, 58, 0.08)',
   },
 };
+
+
+
