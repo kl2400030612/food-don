@@ -4,7 +4,7 @@ const AUTH_TOKEN_KEY = 'food-auth-token';
 const USER_KEY = 'user';
 
 const API = axios.create({
-  baseURL: 'http://localhost:8087',
+  baseURL: import.meta.env.VITE_API_URL,
   timeout: 10000,
   headers: {
     Accept: 'application/json',
@@ -90,5 +90,3 @@ export const getAnalytics = () => API.get('/analytics');
 export const getAdminLogs = (params = {}) => API.get('/admin/logs', { params });
 
 export default API;
-
-
